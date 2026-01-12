@@ -1,0 +1,60 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="APP_whisper_movil.MainPage">
+
+    <ScrollView>
+        <VerticalStackLayout
+            Padding="30,0"
+            Spacing="25">
+            <Label Text="INSPECTOR IA"
+                   FontSize="32"
+                   FontAttributes="Bold"
+                   TextColor="Black"
+                   HorizontalOptions="Center" />
+
+            <Border x:Name="StatusFrame" BackgroundColor="#333" StrokeShape="10" Padding="10">
+                <Label x:Name="StatusLabel" 
+                       Text="Esperando..." 
+                       TextColor="#aaa" 
+                       HorizontalOptions="Center"/>
+            </Border>
+
+            <BoxView HeightRequest="1" Color="Gray" />
+
+            <VerticalStackLayout Spacing="10">
+                <Label Text="1. ¿Daño visible?" TextColor="#4aa0ff" FontSize="18"/>
+                <HorizontalStackLayout Spacing="15">
+                    <CheckBox x:Name="ChkDaño" Color="#4aa0ff" />
+                    <Label Text="Sí, presenta daños" 
+                           VerticalOptions="Center" 
+                           TextColor="White"/>
+                </HorizontalStackLayout>
+            </VerticalStackLayout>
+            
+            <VerticalStackLayout Spacing="10">
+                <Label Text="2. Observaciones Técnicas" TextColor="#4aa0ff" FontSize="18"/>
+                <Editor x:Name="TxtObservacion"
+                        HeightRequest="150"
+                        Placeholder="Dicte su observación aquí..."
+                        TextColor="Black"
+                        BackgroundColor="#f0f0f0"/>
+            </VerticalStackLayout>
+            
+            <Button x:Name="BtnHablar"
+                    Text="MANTENER PARA HABLAR 🎙️"
+                    FontSize="20"
+                    FontAttributes="Bold"
+                    HeightRequest="80"
+                    BackgroundColor="#4aa0ff"
+                    TextColor="White"
+                    CornerRadius="40"
+                    Pressed="OnHablarPressed"
+                    Released="OnHablarReleased"/>
+            
+            <Label x:Name="LblDebug" TextColor="Yellow" FontSize="12" HorizontalOptions="Center"/>
+            
+        </VerticalStackLayout>
+    </ScrollView>
+
+</ContentPage>
