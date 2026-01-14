@@ -1,8 +1,8 @@
-﻿using NAudio.Wave;
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
 using Whisper.net;
 using Whisper.net.Ggml;
-//using static Android.Renderscripts.ScriptGroup;
+using AVFoundation;
+using Foundation;
 
 namespace APP_whisper_movil
 {
@@ -11,57 +11,71 @@ namespace APP_whisper_movil
         // Variables de Audio y Modelo
         private WhisperFactory whisperFactory;
         private WhisperProcessor processor;
-        private WaveInEvent waveIn;
-        private MemoryStream audioBuffer;
-        private WaveFileWriter waveWriter;
+        private AVAudioRecorder recorder;
+        private NSUrl audioFilePath;
         private bool isRecording = false;
 
         public MainPage()
         {
             InitializeComponent();
             InitializeWhisper();
+            ConfigureRecorder();
+        }
+        private void ConfigureRecorder()
+        {
+            var audioSession = AVAudioSession.SharedInstance();//Configurar sesión de audio
+            audioSession.SetCategory(AVAudioSessionCategory.PlayAndRecord); //Permitir grabación y reproducción
+            audioSession.SetActive(true); //Activar sesión
+
+            //Definir ruta del archivo temporal
+            string audioFileName = "temp_audio.wav";
+            string docPath = FileSystem.CacheDirectory;
+            string path = Path.Combine(docPath, audioFileName);
+            audioFilePath = NSUrl.FromFilename(path);
+
+            //Configurar ajustes de grabación compatiblke con Whisper
+            var settings = new AudioSettings
+            {
+                SampleRate = 16000,
+                Format = AudioToolbox.AudioFormatType.LinearPCM,
+                NumberChannels = 1,
+                LinearPcmBitDepth = 16,
+                LinearPcmBigEndian = false,
+                LinearPcmFloat = false,
+            };
+
+            var inputActual = audioSession.CurrentRoute.Inputs.FirstOrDefault();
+
+            recorder = AVAudioRecorder.Create(audioFilePath, settings, out NSError error);
+            
+            if (error != null)
+            {
+                StatusLabel.Text = $"Error configurando el audio: {error.LocalizedDescription}";
+            }
+            else
+            {
+                recorder.PrepareToRecord();
+            }
         }
         private async void InitializeWhisper()
         {
-            waveIn = new WaveInEvent();
-            waveIn.WaveFormat = new WaveFormat(16000, 1);
             try
-            {
-                //Revisar si existe el modelo
-                var modelName = "ggml-small.bin";
-                var modelPath = Path.Combine(FileSystem.Current.AppDataDirectory, modelName);
+            {   
+                var model = await WhisperGgmlDownloader.Default.GetGgmlModelAsync(GgmlType.Small);
+                using var tempMemoryStream = new MemoryStream();
 
-                if (!File.Exists(modelPath)) modelPath = modelName;
-
-                if (!File.Exists(modelPath))
-                {
-                    StatusLabel.Text = "Error: Modelo no encontrado";
-                    return;
-                }
-
+                await model.CopyToAsync(tempMemoryStream);
+                
                 await Task.Run(() =>
                 {
-                    whisperFactory = WhisperFactory.FromPath(modelPath);
+                    whisperFactory = WhisperFactory.FromBuffer(tempMemoryStream.ToArray());
                     processor = whisperFactory.CreateBuilder().WithLanguage("es").Build(); // Creación del procesador (configurado para español)
                 });
 
                 StatusLabel.Text = "✅ Sistema Listo. Presione el botón.";
-
-                // Configuración de NAudio
-                waveIn = new WaveInEvent();
-                waveIn.WaveFormat = new WaveFormat(16000, 1); // 16000 Hz, Mono (compatible con Whisper)
-
-                // Buffer para guardar el audio en memoria RAM
-                audioBuffer = new MemoryStream();
-
-                // Definición de evento: Cada vez que el micro llena un buffer, este se escribirá en RAM
-                waveIn.DataAvailable += (sender, e) =>
-                {
-                    if (isRecording && waveWriter != null) waveWriter.Write(e.Buffer, 0, e.BytesRecorded);
-                };
             } catch (Exception e)
             {
-                StatusLabel.Text = $"Error Init: {e.Message}";
+                StatusLabel.Text = $"Error iniciando el modelo de Whisper: {e.Message}";
             }
         }
 
@@ -75,11 +89,7 @@ namespace APP_whisper_movil
             BtnHablar.BackgroundColor = Colors.DarkRed;
             BtnHablar.Text = "GRABANDO...";
 
-            // Crear nuevo buffer y writer para cada grabación
-            audioBuffer = new MemoryStream();
-            waveWriter = new WaveFileWriter(audioBuffer, waveIn.WaveFormat);
-
-            waveIn.StartRecording();
+            recorder.Record();
         }
 
         private async void OnHablarReleased(object sender, EventArgs e)
@@ -87,19 +97,24 @@ namespace APP_whisper_movil
             if (!isRecording) return;
 
             isRecording = false;
-            waveIn.StopRecording();
-            waveWriter.Flush();
+            recorder.Stop();
 
             StatusLabel.Text = "⏳ Procesando...";
             StatusFrame.BackgroundColor = Colors.Orange;
             BtnHablar.Text = "MANTENER PARA HABLAR 🎙️";
             BtnHablar.BackgroundColor = Color.FromArgb("#4aa0ff");
 
-            audioBuffer.Position= 0;
+            if(!File.Exists(audioFilePath.Path))
+            {
+                StatusLabel.Text = "Error: No se encontró el archivo de audio grabado.";
+                return;
+            }
+
+            using var fileStream = File.OpenRead(audioFilePath.Path);
 
             try
             {
-                await foreach (var result in processor.ProcessAsync(audioBuffer))
+                await foreach (var result in processor.ProcessAsync(fileStream))
                 {
                     string texto = LimpiarComando(result.Text);
                     LblDebug.Text = $"Último detectado: {texto}"; // Debug visual
@@ -113,14 +128,6 @@ namespace APP_whisper_movil
             catch (Exception ex)
             {
                 StatusLabel.Text = "Error: " + ex.Message;
-            }
-            finally
-            {
-                // Limpiar recursos de esta grabación
-                waveWriter?.Dispose();
-                waveWriter = null;
-                audioBuffer?.Dispose();
-                audioBuffer = null;
             }
         }
 
