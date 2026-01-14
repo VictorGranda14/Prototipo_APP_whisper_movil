@@ -6,6 +6,11 @@ using Foundation;
 
 namespace APP_whisper_movil
 {
+    public enum AppState
+    {
+        Navigation,
+        Writing,
+    }
     public partial class MainPage : ContentPage
     {
         // Variables de Audio y Modelo
@@ -13,6 +18,8 @@ namespace APP_whisper_movil
         private WhisperProcessor processor;
         private AVAudioRecorder recorder;
         private NSUrl audioFilePath;
+        //Variables de Estado
+        private AppState currentState = AppState.Navigation;
         private bool isRecording = false;
 
         public MainPage()
@@ -72,6 +79,8 @@ namespace APP_whisper_movil
                     processor = whisperFactory.CreateBuilder().WithLanguage("es").Build(); // Creación del procesador (configurado para español)
                 });
 
+                StatusLabel.TextColor = Colors.White;
+                StatusFrame.BackgroundColor = Color.FromArgb("#4aa0ff");
                 StatusLabel.Text = "✅ Sistema Listo. Presione el botón.";
             } catch (Exception e)
             {
@@ -116,10 +125,7 @@ namespace APP_whisper_movil
             {
                 await foreach (var result in processor.ProcessAsync(fileStream))
                 {
-                    string texto = LimpiarComando(result.Text);
-                    LblDebug.Text = $"Último detectado: {texto}"; // Debug visual
-
-                    ProcesarComando(texto); // <--- Lógica de Negocio
+                    ProcesarComando(result.Text); // <--- Lógica de Negocio
                 }
 
                 StatusLabel.Text = "✅ Listo";
@@ -131,11 +137,11 @@ namespace APP_whisper_movil
             }
         }
 
-        private static string LimpiarComando(string input)
+        private void ProcesarComando(string texto)
         {
-            if (string.IsNullOrEmpty(input)) return "";
-
-            return input
+            // Limpiar texto
+            if (string.IsNullOrEmpty(texto)) return;
+            texto = texto
                 .Trim()
                 .ToUpper()
                 .Replace(".", "")
@@ -143,33 +149,64 @@ namespace APP_whisper_movil
                 .Replace("¡", "")
                 .Replace("?", "")
                 .Replace("¿", "");
+
+            LblDebug.Text = $"Último detectado: {texto}"; // Debug visual
+
+            LblStatus.Text = $"Estado actual: {currentState}"; // Debug visual
+            switch (currentState)
+            {
+                case AppState.Navigation:
+                    ProcesarComandoNavegacion(texto);
+                    break;
+                case AppState.Writing:
+                    ProcesarComandoEscritura(texto);
+                    break;
+            }
         }
 
-        private void ProcesarComando(string texto)
+        private void ProcesarComandoNavegacion(string comando)
         {
+            // Comando para entrar en modo escritura
+            if (comando.Contains("ESCRIBIR OBSERVACIÓN") || comando.Contains("ESCRIBIR OBSERVACION") || comando.Contains("ESCRIBIR NÚMERO") || comando.Contains("ESCRIBIR NUMERO"))
+            {
+                currentState = AppState.Writing;
+                StatusLabel.Text = "📝 MODO ESCRITURA ACTIVADO (Diga 'Finalizar' para salir)";
+                BtnHablar.BackgroundColor = Colors.Orange; // Feedback visual importante
+                return;
+            }
+
+            if (currentState != AppState.Navigation) return;
+
             // Lógica Checkbox
-            if (texto.Contains("SÍ") || texto.Contains("SI"))
+            if (comando.Contains("SÍ") || comando.Contains("SI"))
             {
                 ChkDaño.IsChecked = true;
             }
-            else if (texto.Contains("NO"))
+            else if (comando.Contains("NO"))
             {
                 ChkDaño.IsChecked = false;
             }
-            // Lógica Limpieza
-            else if (texto.Contains("BORRAR") || texto.Contains("LIMPIAR"))
+        }
+
+        private void ProcesarComandoEscritura(string comando)
+        {
+            if (comando.Contains("FINALIZAR ESCRITURA") || comando == "FINALIZAR")
+            {
+                currentState = AppState.Navigation;
+                StatusLabel.Text = "🔙 MODO NAVEGACIÓN (Diga comandos)";
+                BtnHablar.BackgroundColor = Color.FromArgb("#4aa0ff"); // Volver a azul
+                return;
+            }
+
+            if (comando.Contains("BORRAR") || comando.Contains("LIMPIAR"))
             {
                 TxtObservacion.Text = "";
+                return;
             }
-            // Si no es comando corto, asumimos que es dictado para el campo de texto
-            else
-            {
-                // Agregamos el texto al editor (con un espacio si ya hay algo)
-                if (!string.IsNullOrEmpty(TxtObservacion.Text))
-                    TxtObservacion.Text += " ";
 
-                TxtObservacion.Text += texto;
-            }
+            if (!string.IsNullOrEmpty(TxtObservacion.Text)) TxtObservacion.Text += " ";
+
+            TxtObservacion.Text += comando;
         }
     }
 }
