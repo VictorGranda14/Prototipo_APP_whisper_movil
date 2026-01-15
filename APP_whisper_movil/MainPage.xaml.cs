@@ -3,6 +3,7 @@ using Whisper.net;
 using Whisper.net.Ggml;
 using AVFoundation;
 using Foundation;
+using System.Diagnostics;
 
 namespace APP_whisper_movil
 {
@@ -18,9 +19,16 @@ namespace APP_whisper_movil
         private WhisperProcessor processor;
         private AVAudioRecorder recorder;
         private NSUrl audioFilePath;
-        //Variables de Estado
+
+        // Variables de Estado
         private AppState currentState = AppState.Navigation;
-        private bool isRecording = false;
+        private bool isListening = false; //Indica si se está en modo escucha continua
+        private CancellationTokenSource listeningCancellationTokenSource; //Token para cancelar la escucha
+
+        // Variables para VAD
+        private DateTime lastSpeechTime = DateTime.MinValue; // Última vez que se detectó voz
+        private const int SILENCE_THRESHOLD_MS = 1500; // 1.5 segundos de silencio antes de procesar
+        private bool isSpeaking = false; // Indica si el usuario está hablando
 
         public MainPage()
         {
@@ -51,8 +59,6 @@ namespace APP_whisper_movil
                 LinearPcmFloat = false,
             };
 
-            var inputActual = audioSession.CurrentRoute.Inputs.FirstOrDefault();
-
             recorder = AVAudioRecorder.Create(audioFilePath, settings, out NSError error);
             
             if (error != null)
@@ -62,6 +68,7 @@ namespace APP_whisper_movil
             else
             {
                 recorder.PrepareToRecord();
+                recorder.MeteringEnabled = true; // Habilitar medición de niveles para VAD
             }
         }
         private async void InitializeWhisper()
@@ -92,48 +99,152 @@ namespace APP_whisper_movil
         {
             if (processor == null) return;
 
+            if (!isListening)
+            {
+                StartContinuousListening();
+            }
+            else
+            {
+                StopContinuousListening();
+            }
+
+            /*
             isRecording = true;
             StatusLabel.Text = "🔴 Escuchando...";
             StatusFrame.BackgroundColor = Colors.Red;
             BtnHablar.BackgroundColor = Colors.DarkRed;
             BtnHablar.Text = "GRABANDO...";
 
-            recorder.Record();
+            recorder.Record();*/
         }
 
-        private async void OnHablarReleased(object sender, EventArgs e)
+        private async void StartContinuousListening()
         {
-            if (!isRecording) return;
+            isListening = true;
+            listeningCancellationTokenSource = new CancellationTokenSource();
+            var token = listeningCancellationTokenSource.Token;
+            
+            recorder.Record();
 
-            isRecording = false;
+            BtnHablar.Text = "DETENER ESCUCHA CONTINUA 🛑";
+            StatusLabel.Text = "🎧 Modo escucha continua activado.";
+            StatusFrame.BackgroundColor = Colors.Green;
+            BtnHablar.BackgroundColor = Colors.DarkRed;
+
+            await Task.Run(() => ProcessAudioStream(token));
+        }
+
+        private async void StopContinuousListening()
+        {
+            if (!isListening) return;
+
+            isListening = false;
+            listeningCancellationTokenSource?.Cancel();
             recorder.Stop();
 
-            StatusLabel.Text = "⏳ Procesando...";
-            StatusFrame.BackgroundColor = Colors.Orange;
-            BtnHablar.Text = "MANTENER PARA HABLAR 🎙️";
+            BtnHablar.Text = "PRESIONAR PARA HABLAR 🎙️";
+            StatusLabel.Text = "⏸️ Modo escucha continua desactivado.";
+            StatusFrame.BackgroundColor = Color.FromArgb("#4aa0ff");
             BtnHablar.BackgroundColor = Color.FromArgb("#4aa0ff");
+        }
+
+        private async Task ProcessAudioStream(CancellationToken token)
+        {
+            while (!token.IsCancellationRequested)
+            {
+                try
+                {
+                    // Actualizar medición de audio
+                    recorder.UpdateMeters();
+                    float averagePower = recorder.AveragePower(0); // Canal 0 (mono)
+                    float peakPower = recorder.PeakPower(0);
+
+                    Debug.WriteLine($"Average Power: {averagePower}, Peak Power: {peakPower}");
+                    
+                    // VAD simple basado en nivel de audio (umbral de -25 dB)
+                    if (averagePower > -25f)
+                    {
+                        if (!isSpeaking)
+                        {
+                            isSpeaking = true; // Asumimos que el usuario está hablando
+                            MainThread.BeginInvokeOnMainThread(() =>
+                            {
+                                StatusFrame.BackgroundColor = Colors.Orange;
+                                StatusLabel.Text = "🔴 Escuchando sonido...";
+                            });
+                        }
+                        lastSpeechTime = DateTime.Now;
+                    }
+                    else
+                    {
+                        if (isSpeaking && (DateTime.Now - lastSpeechTime).TotalMilliseconds > SILENCE_THRESHOLD_MS)
+                        {
+                            Debug.WriteLine($"{(DateTime.Now - lastSpeechTime).TotalMilliseconds}: Silencio detectado, procesando audio...");
+                            isSpeaking = false;
+                            await ProcessSpeech();
+                        }
+                    }
+
+                    await Task.Delay(100, token); // Espera breve para evitar sobrecarga
+                }
+                catch (TaskCanceledException)
+                {
+                    break; // Salir del bucle si se cancela la tarea
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine("Error en procesando audio: " + ex.Message);
+                }
+            }
+        }
+
+        private async Task ProcessSpeech()
+        {
+            MainThread.BeginInvokeOnMainThread(() =>
+            {
+                StatusLabel.Text = "⏳ Procesando...";
+                StatusFrame.BackgroundColor = Colors.Orange;
+            });
 
             if(!File.Exists(audioFilePath.Path))
             {
-                StatusLabel.Text = "Error: No se encontró el archivo de audio grabado.";
+                Debug.WriteLine("Archivo de audio no encontrado para procesar.");
                 return;
             }
 
-            using var fileStream = File.OpenRead(audioFilePath.Path);
-
             try
             {
+                recorder.Stop(); // Detener la grabación para liberar el archivo
+
+                using var fileStream = File.OpenRead(audioFilePath.Path);
+
                 await foreach (var result in processor.ProcessAsync(fileStream))
                 {
-                    ProcesarComando(result.Text); // <--- Lógica de Negocio
+                    if (!string.IsNullOrWhiteSpace(result.Text))
+                    {
+                        MainThread.BeginInvokeOnMainThread(() =>
+                        {
+                            ProcesarComando(result.Text); // Procesar el texto reconocido
+                        });
+                    }
+                    else
+                    {
+                        Debug.WriteLine("No se reconoció texto en este fragmento.");
+                    }
                 }
 
-                StatusLabel.Text = "✅ Listo";
-                StatusFrame.BackgroundColor = Color.FromArgb("#333");
+                // Reiniciar grabación
+                recorder.Record();
+
+                MainThread.BeginInvokeOnMainThread(() =>
+                {
+                    StatusLabel.Text = "🎧 Modo escucha continua activado.";
+                });
             }
             catch (Exception ex)
             {
-                StatusLabel.Text = "Error: " + ex.Message;
+                Debug.WriteLine("Error procesando el habla: " + ex.Message);
+                recorder.Record(); // Asegurarse de reiniciar la grabación
             }
         }
 

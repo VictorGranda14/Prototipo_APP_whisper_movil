@@ -10,7 +10,7 @@
             <Label Text="INSPECTOR IA"
                    FontSize="32"
                    FontAttributes="Bold"
-                   TextColor="Black"
+                   TextColor="Purple"
                    HorizontalOptions="Center" />
 
             <Border x:Name="StatusFrame" BackgroundColor="#333" StrokeShape="10" Padding="10">
@@ -42,15 +42,14 @@
             </VerticalStackLayout>
             
             <Button x:Name="BtnHablar"
-                    Text="MANTENER PARA HABLAR 🎙️"
+                    Text="PRESIONAR PARA ACTIVAR MODO DICTADO 🎙️"
                     FontSize="20"
                     FontAttributes="Bold"
                     HeightRequest="80"
                     BackgroundColor="#4aa0ff"
                     TextColor="White"
                     CornerRadius="40"
-                    Pressed="OnHablarPressed"
-                    Released="OnHablarReleased"/>
+                    Clicked="OnHablarPressed"/>
             
             <Label x:Name="LblDebug" TextColor="Yellow" FontSize="12" HorizontalOptions="Center"/>
             <Label x:Name="LblStatus" TextColor="Yellow" FontSize="12" HorizontalOptions="Center"/>
