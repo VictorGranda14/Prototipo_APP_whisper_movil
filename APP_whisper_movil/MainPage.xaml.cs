@@ -75,14 +75,20 @@ namespace APP_whisper_movil
         {
             try
             {   
-                var model = await WhisperGgmlDownloader.Default.GetGgmlModelAsync(GgmlType.Small);
-                using var tempMemoryStream = new MemoryStream();
+                string modelFileName = "ggml-small.bin";
+                string localModelPath = Path.Combine(FileSystem.CacheDirectory, modelFileName);
 
-                await model.CopyToAsync(tempMemoryStream);
+                if (!File.Exists(localModelPath))
+                {
+                    // Copiar el modelo desde los recursos embebidos a almacenamiento local
+                    using var modelStream = await FileSystem.OpenAppPackageFileAsync(modelFileName);
+                    using var fileStream = File.Create(localModelPath);
+                    await modelStream.CopyToAsync(fileStream);
+                }
                 
                 await Task.Run(() =>
                 {
-                    whisperFactory = WhisperFactory.FromBuffer(tempMemoryStream.ToArray());
+                    whisperFactory = WhisperFactory.FromPath(localModelPath);
                     processor = whisperFactory.CreateBuilder().WithLanguage("es").Build(); // Creación del procesador (configurado para español)
                 });
 
@@ -107,15 +113,6 @@ namespace APP_whisper_movil
             {
                 StopContinuousListening();
             }
-
-            /*
-            isRecording = true;
-            StatusLabel.Text = "🔴 Escuchando...";
-            StatusFrame.BackgroundColor = Colors.Red;
-            BtnHablar.BackgroundColor = Colors.DarkRed;
-            BtnHablar.Text = "GRABANDO...";
-
-            recorder.Record();*/
         }
 
         private async void StartContinuousListening()
