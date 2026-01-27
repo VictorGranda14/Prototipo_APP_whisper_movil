@@ -58,6 +58,7 @@ public class VoiceControlManager : IVoiceControlManager
 
             // Inicializar grabador de audio
             await _audioRecorderService.InitializeAsync();
+            
             if (!_audioRecorderService.IsInitialized)
             {
                 UpdateStatus(VoiceControlState.Error, "Error al inicializar el grabador de audio");
