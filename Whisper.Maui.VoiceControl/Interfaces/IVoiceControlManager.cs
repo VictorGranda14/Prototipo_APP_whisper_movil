@@ -10,5 +10,7 @@ public interface IVoiceControlManager
     Task StartContinuousListening(CancellationToken token);
     void StopListening();
     void UpdateStatus(VoiceControlState state, string message);
+    void RegisterCommand(string pattern, Action<string> handler);
+    void UnregisterCommand(string pattern);
     void Dispose();
 }

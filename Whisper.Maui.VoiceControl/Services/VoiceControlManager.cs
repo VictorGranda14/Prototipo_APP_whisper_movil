@@ -8,6 +8,7 @@ public class VoiceControlManager : IVoiceControlManager
     private readonly IWhisperService _whisperService;
     private readonly IAudioRecorderService _audioRecorderService;
     private readonly IVoiceActivityDetector _voiceActivityDetector;
+    private readonly IVoiceCommandProcessor _commandProcessor;
 
     // Estado interno
     private bool _isListening;
@@ -25,15 +26,21 @@ public class VoiceControlManager : IVoiceControlManager
     public VoiceControlManager(
         IWhisperService whisperService,
         IAudioRecorderService audioRecorderService,
-        IVoiceActivityDetector voiceActivityDetector)
+        IVoiceActivityDetector voiceActivityDetector,
+        IVoiceCommandProcessor commandProcessor)
     {
         _whisperService = whisperService ?? throw new ArgumentNullException(nameof(whisperService));
         _audioRecorderService = audioRecorderService ?? throw new ArgumentNullException(nameof(audioRecorderService));
         _voiceActivityDetector = voiceActivityDetector ?? throw new ArgumentNullException(nameof(voiceActivityDetector));
+        _commandProcessor = commandProcessor ?? throw new ArgumentNullException(nameof(commandProcessor));
 
         // Suscribirse a eventos del VAD
         _voiceActivityDetector.SpeechStarted += OnSpeechStarted;
         _voiceActivityDetector.SpeechEnded += OnSpeechEnded;
+        OnTranscriptionReceived += (s, text) =>
+        {
+            _commandProcessor.ProcessCommand(text);
+        };
     }
 
     public async Task<bool> InitializeAsync(VoiceControlConfig config)
@@ -58,7 +65,7 @@ public class VoiceControlManager : IVoiceControlManager
 
             // Inicializar grabador de audio
             await _audioRecorderService.InitializeAsync();
-            
+
             if (!_audioRecorderService.IsInitialized)
             {
                 UpdateStatus(VoiceControlState.Error, "Error al inicializar el grabador de audio");
@@ -135,6 +142,32 @@ public class VoiceControlManager : IVoiceControlManager
         }
     }
 
+    // Métodos de conveniencia para comandos
+
+    public void RegisterCommand(string pattern, Action<string> handler)
+    {
+        if (_commandProcessor == null)
+            throw new InvalidOperationException("No se configuró un CommandProcessor. Pase uno al constructor para usar esta funcionalidad.");
+
+        _commandProcessor.RegisterCommand(pattern, handler);
+    }
+
+    public void UnregisterCommand(string pattern)
+    {
+        if (_commandProcessor == null)
+            throw new InvalidOperationException("No se configuró un CommandProcessor.");
+
+        _commandProcessor.UnregisterCommand(pattern);
+    }
+
+    public void SetCommandState(object state)
+    {
+        if (_commandProcessor == null)
+            throw new InvalidOperationException("No se configuró un CommandProcessor.");
+
+        _commandProcessor.SetState(state);
+    }
+
     public void Dispose()
     {
         if (_disposed) return;
@@ -144,10 +177,12 @@ public class VoiceControlManager : IVoiceControlManager
         // Desuscribirse de eventos
         _voiceActivityDetector.SpeechStarted -= OnSpeechStarted;
         _voiceActivityDetector.SpeechEnded -= OnSpeechEnded;
+        OnTranscriptionReceived -= (s, text) => _commandProcessor.ProcessCommand(text);
 
         // Liberar servicios
         _audioRecorderService?.Dispose();
         _whisperService?.Dispose();
+        _commandProcessor?.Dispose();
 
         _disposed = true;
     }

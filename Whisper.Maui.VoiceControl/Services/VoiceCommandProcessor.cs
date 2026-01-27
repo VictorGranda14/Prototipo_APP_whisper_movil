@@ -96,4 +96,10 @@ public class VoiceCommandProcessor : IVoiceCommandProcessor
     {
         return _commands.Count;
     }
+
+    public void Dispose()
+    {
+        // Limpiar comandos
+        ClearAllCommands();
+    }
 }
