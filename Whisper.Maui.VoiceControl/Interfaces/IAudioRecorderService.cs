@@ -2,11 +2,11 @@ namespace Whisper.Maui.VoiceControl;
 
 public interface IAudioRecorderService
 {
+    bool IsInitialized { get; }
     bool IsRecording { get; }
     string AudioFilePath { get; }
     float GetAveragePower();
-    float GetPeakPower();
-    Task<bool> InitializeAsync();
+    Task InitializeAsync();
     void StartRecording();
     void StopRecording();
 

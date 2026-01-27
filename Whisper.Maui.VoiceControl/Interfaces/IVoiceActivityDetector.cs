@@ -7,5 +7,5 @@ public interface IVoiceActivityDetector
     float VoiceThresholdDb { get; set; }
     event EventHandler SpeechStarted;
     event EventHandler SpeechEnded;
-    void UpdateAudioLevel(float averagePower, float peakPower);
+    void UpdateAudioLevel(float averagePower);
 }

@@ -7,7 +7,8 @@ public interface IVoiceControlManager
     event EventHandler<VoiceControlStatus> OnStatusChanged;
     event EventHandler<Exception> OnError;
     Task<bool> InitializeAsync(VoiceControlConfig config);
-    Task StartContinuousListeningAsync(CancellationToken token);
+    Task StartContinuousListening(CancellationToken token);
     void StopListening();
+    void UpdateStatus(VoiceControlState state, string message);
     void Dispose();
 }
