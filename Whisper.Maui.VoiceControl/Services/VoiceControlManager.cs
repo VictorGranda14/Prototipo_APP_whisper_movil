@@ -34,7 +34,7 @@ public class VoiceControlManager : IVoiceControlManager
         _voiceActivityDetector = voiceActivityDetector ?? throw new ArgumentNullException(nameof(voiceActivityDetector));
         _commandProcessor = commandProcessor ?? throw new ArgumentNullException(nameof(commandProcessor));
 
-        // Suscribirse a eventos del VAD
+        // Suscribirse a eventos
         _voiceActivityDetector.SpeechStarted += OnSpeechStarted;
         _voiceActivityDetector.SpeechEnded += OnSpeechEnded;
         OnTranscriptionReceived += (s, text) =>
@@ -242,8 +242,11 @@ public class VoiceControlManager : IVoiceControlManager
             {
                 if (!string.IsNullOrWhiteSpace(text))
                 {
-                    // Emitir evento de transcripción
-                    OnTranscriptionReceived?.Invoke(this, text);
+                    // Intentar procesar como comando. Si no es comando, emitir evento
+                    if (_commandProcessor == null || !_commandProcessor.ProcessCommand(text))
+                    {
+                        OnTranscriptionReceived?.Invoke(this, text);
+                    }
                 }
                 else
                 {

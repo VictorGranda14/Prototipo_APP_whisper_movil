@@ -7,9 +7,9 @@ public class VoiceCommandProcessor : IVoiceCommandProcessor
     // Almacena comandos: key = pattern, value = handler
     private readonly Dictionary<string, Action<string>> _commands = new();
 
-    public void ProcessCommand(string text)
+    public bool ProcessCommand(string text)
     {
-        if (string.IsNullOrEmpty(text)) return;
+        if (string.IsNullOrEmpty(text)) return false;
 
         // Limpiar texto
         string cleanText = text
@@ -23,16 +23,15 @@ public class VoiceCommandProcessor : IVoiceCommandProcessor
 
         Debug.WriteLine($"[VoiceCommandProcessor] Procesando: '{cleanText}'");
 
-        // Búsqueda O(1) - lookup directo en el diccionario
         if (_commands.TryGetValue(cleanText, out var handler))
         {
             Debug.WriteLine($"[VoiceCommandProcessor] Comando encontrado: '{cleanText}'");
             handler.Invoke(cleanText);
+            return true;
         }
-        else
-        {
-            Debug.WriteLine($"[VoiceCommandProcessor] Comando no registrado: '{cleanText}'");
-        }
+
+        Debug.WriteLine($"[VoiceCommandProcessor] Comando no registrado: '{cleanText}'");
+        return false;
     }
 
     public void RegisterCommand(string pattern, Action<string> handler)
