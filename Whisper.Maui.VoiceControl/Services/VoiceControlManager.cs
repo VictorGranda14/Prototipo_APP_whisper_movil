@@ -160,14 +160,6 @@ public class VoiceControlManager : IVoiceControlManager
         _commandProcessor.UnregisterCommand(pattern);
     }
 
-    public void SetCommandState(object state)
-    {
-        if (_commandProcessor == null)
-            throw new InvalidOperationException("No se configuró un CommandProcessor.");
-
-        _commandProcessor.SetState(state);
-    }
-
     public void Dispose()
     {
         if (_disposed) return;
