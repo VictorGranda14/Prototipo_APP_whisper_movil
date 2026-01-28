@@ -23,8 +23,6 @@ public class WhisperService : IWhisperService
             using var stream = await FileSystem.OpenAppPackageFileAsync(modelName);
             using var fileStream = File.Create(modelPath);
             await stream.CopyToAsync(fileStream);
-        }else{
-            throw new FileNotFoundException($"Model file not found: {modelPath}");
         }
 
         await Task.Run(() =>

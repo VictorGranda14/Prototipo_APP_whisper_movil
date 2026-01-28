@@ -242,7 +242,7 @@ public class MainPageViewModel : BaseViewModel
             {
                 VoiceControlState.Idle => Color.FromArgb("#4aa0ff"),
                 VoiceControlState.Listening => Colors.Green,
-                VoiceControlState.SpeechDetected => Colors.Orange,
+                VoiceControlState.SpeechDetected => Colors.Purple,
                 VoiceControlState.Processing => Colors.Orange,
                 VoiceControlState.Error => Colors.Red
             };
