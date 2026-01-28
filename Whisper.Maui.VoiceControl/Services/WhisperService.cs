@@ -1,3 +1,4 @@
+using Whisper.net;
 namespace Whisper.Maui.VoiceControl;
 
 public class WhisperService : IWhisperService
