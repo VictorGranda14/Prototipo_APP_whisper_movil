@@ -1,7 +1,9 @@
 ﻿<?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             x:Class="APP_whisper_movil.MainPage">
+             xmlns:viewmodels="clr-namespace:APP_whisper_movil.ViewModels"
+             x:Class="APP_whisper_movil.MainPage"
+             x:DataType="viewmodels:MainPageViewModel">
 
     <ScrollView>
         <VerticalStackLayout
@@ -13,10 +15,11 @@
                    TextColor="Purple"
                    HorizontalOptions="Center" />
 
-            <Border x:Name="StatusFrame" BackgroundColor="#333" StrokeShape="10" Padding="10">
-                <Label x:Name="StatusLabel" 
-                       Text="Esperando..." 
-                       TextColor="#aaa" 
+            <Border BackgroundColor="{Binding StatusBackgroundColor}" 
+                    StrokeShape="RoundRectangle 10" 
+                    Padding="10">
+                <Label Text="{Binding StatusText}" 
+                       TextColor="White" 
                        HorizontalOptions="Center"/>
             </Border>
 
@@ -25,7 +28,7 @@
             <VerticalStackLayout Spacing="10">
                 <Label Text="1. ¿Daño visible?" TextColor="#4aa0ff" FontSize="18"/>
                 <HorizontalStackLayout Spacing="15">
-                    <CheckBox x:Name="ChkDaño" Color="#4aa0ff" />
+                    <CheckBox IsChecked="{Binding CheckboxDano}" Color="#4aa0ff" />
                     <Label Text="Sí, presenta daños" 
                            VerticalOptions="Center" 
                            TextColor="White"/>
@@ -34,25 +37,24 @@
             
             <VerticalStackLayout Spacing="10">
                 <Label Text="2. Observaciones Técnicas" TextColor="#4aa0ff" FontSize="18"/>
-                <Editor x:Name="TxtObservacion"
+                <Editor Text="{Binding ObservacionText}"
                         HeightRequest="150"
                         Placeholder="Dicte su observación aquí..."
                         TextColor="Black"
                         BackgroundColor="#f0f0f0"/>
             </VerticalStackLayout>
             
-            <Button x:Name="BtnHablar"
-                    Text="PRESIONAR PARA ACTIVAR MODO DICTADO 🎙️"
+            <Button Text="{Binding ButtonText}"
+                    Command="{Binding ToggleListeningCommand}"
                     FontSize="20"
                     FontAttributes="Bold"
                     HeightRequest="80"
-                    BackgroundColor="#4aa0ff"
+                    BackgroundColor="{Binding ButtonBackgroundColor}"
                     TextColor="White"
-                    CornerRadius="40"
-                    Clicked="OnHablarPressed"/>
+                    CornerRadius="40"/>
             
-            <Label x:Name="LblDebug" TextColor="Yellow" FontSize="12" HorizontalOptions="Center"/>
-            <Label x:Name="LblStatus" TextColor="Yellow" FontSize="12" HorizontalOptions="Center"/>
+            <Label Text="{Binding DebugText}" TextColor="Yellow" FontSize="12" HorizontalOptions="Center"/>
+            <Label Text="{Binding StateText}" TextColor="Yellow" FontSize="12" HorizontalOptions="Center"/>
             
         </VerticalStackLayout>
     </ScrollView>
