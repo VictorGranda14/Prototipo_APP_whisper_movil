@@ -1,3 +1,4 @@
 <Solution>
   <Project Path="APP_whisper_movil/APP_whisper_movil.csproj" />
+  <Project Path="Whisper.Maui.VoiceControl/Whisper.Maui.VoiceControl.csproj" />
 </Solution>
